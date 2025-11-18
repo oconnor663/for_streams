@@ -10,3 +10,6 @@ proc-macro = true
 proc-macro2 = "1.0.103"
 quote = "1.0.42"
 syn = { version = "2.0.110", features = ["full"] }
+
+[dev-dependencies]
+tokio = { version = "1.48.0", features = ["full"] }
