@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 use syn::{
-    Expr, Pat, Token,
+    Block, Expr, Pat, Token,
     parse::{Parse, ParseStream},
     parse_macro_input,
 };
@@ -34,7 +34,7 @@ impl ToTokens for ForStreams {
 struct Arm {
     pattern: Pat,
     stream: Expr,
-    body: Expr,
+    body: Block,
 }
 
 impl Parse for Arm {
