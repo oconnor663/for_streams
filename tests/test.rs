@@ -12,12 +12,18 @@ async fn test_channels() {
     let mut outputs1 = Vec::new();
     let mut outputs2 = Vec::new();
     for_streams! {
-        val in tokio_stream::iter(0..10) => {
+        // Without the `move` keyword in the sender arms, this test will compile but deadlock. We
+        // need to drop the channel senders to allow the channel receivers to read end of stream.
+        // This also indirectly tests that `futures::join!` drops its arguments promptly, as soon
+        // as each one of them is finished, rather than all together at the end.
+        val in tokio_stream::iter(0..10) => move {
             sender1.send(val).await.unwrap();
         }
-        val in tokio_stream::iter(10..20) => {
+        val in tokio_stream::iter(10..20) => move {
             sender2.send(val).await.unwrap();
         }
+        // These arms would *not* compile with the `move` keyword, because we reference `outputs1`
+        // and `outputs2` again below.
         val in ReceiverStream::new(receiver1) => {
             outputs1.push(val);
         }
