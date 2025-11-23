@@ -72,7 +72,14 @@ impl ToTokens for Arm {
             async #move_token {
                 let mut stream = ::std::pin::pin!(#stream);
                 while let Some(#pattern) = ::futures::stream::StreamExt::next(&mut stream).await {
-                    #body
+                    let mut looped_once = false;
+                    loop {
+                        if looped_once {
+                            break; // `continue` in the body
+                        }
+                        looped_once = true;
+                        #body
+                    }
                 }
             }
         });

@@ -17,6 +17,9 @@ async fn test_channels() {
         // This also indirectly tests that `futures::join!` drops its arguments promptly, as soon
         // as each one of them is finished, rather than all together at the end.
         val in tokio_stream::iter(0..10) => move {
+            if val % 2 == 0 {
+                continue; // skip the evens
+            }
             sender1.send(val).await.unwrap();
         }
         val in tokio_stream::iter(10..20) => move {
@@ -28,9 +31,12 @@ async fn test_channels() {
             outputs1.push(val);
         }
         val in ReceiverStream::new(receiver2) => {
+            if val % 2 == 1 {
+                continue; // skip the odds
+            }
             outputs2.push(val);
         }
     }
-    assert_eq!(outputs1, (0..10).collect::<Vec<_>>());
-    assert_eq!(outputs2, (10..20).collect::<Vec<_>>());
+    assert_eq!(outputs1, vec![1, 3, 5, 7, 9]);
+    assert_eq!(outputs2, vec![10, 12, 14, 16, 18]);
 }
