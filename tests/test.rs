@@ -1,4 +1,5 @@
 use for_streams::for_streams;
+use std::task::Poll;
 use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -39,4 +40,23 @@ async fn test_channels() {
     }
     assert_eq!(outputs1, vec![1, 3, 5, 7, 9]);
     assert_eq!(outputs2, vec![10, 12, 14, 16, 18]);
+}
+
+#[tokio::test]
+async fn test_break() {
+    let numbers_stream = futures::stream::iter(0..10);
+    let never_stream =
+        futures::stream::poll_fn(|_| -> Poll<Option<()>> { std::task::Poll::Pending });
+    let mut outputs = Vec::new();
+    for_streams! {
+        val in numbers_stream => {
+            outputs.push(val);
+            if val == 5 {
+                // Without a `break` here, we deadlock on `never_stream`.
+                break;
+            }
+        }
+        _ in never_stream => {}
+    }
+    assert_eq!(outputs, vec![0, 1, 2, 3, 4, 5]);
 }
