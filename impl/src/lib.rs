@@ -36,9 +36,11 @@ struct ForStreams {
 
 impl Parse for ForStreams {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            arms: parse_zero_or_more(input),
-        })
+        let mut arms = Vec::new();
+        while !input.is_empty() {
+            arms.push(input.parse()?);
+        }
+        Ok(Self { arms })
     }
 }
 
@@ -105,14 +107,6 @@ impl ToTokens for ForStreams {
             }
         });
     }
-}
-
-fn parse_zero_or_more<T: Parse>(input: ParseStream) -> Vec<T> {
-    let mut result = Vec::new();
-    while let Ok(item) = input.parse() {
-        result.push(item);
-    }
-    result
 }
 
 #[proc_macro]
