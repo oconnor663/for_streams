@@ -44,6 +44,28 @@ async fn test_channels() {
 
 #[tokio::test]
 async fn test_break() {
+    let stream1 = futures::stream::iter(0..5);
+    let stream2 = futures::stream::iter(0..5);
+    let mut outputs1 = Vec::new();
+    let mut outputs2 = Vec::new();
+    for_streams! {
+        val in stream1 => {
+            outputs1.push(val);
+            if val == 2 {
+                // `break` ends this arm, but not the other one.
+                break;
+            }
+        }
+        val in stream2 => {
+            outputs2.push(val);
+        }
+    }
+    assert_eq!(outputs1, vec![0, 1, 2]);
+    assert_eq!(outputs2, vec![0, 1, 2, 3, 4]);
+}
+
+#[tokio::test]
+async fn test_return() {
     let numbers_stream = futures::stream::iter(0..10);
     let never_stream =
         futures::stream::poll_fn(|_| -> Poll<Option<()>> { std::task::Poll::Pending });
@@ -52,8 +74,8 @@ async fn test_break() {
         val in numbers_stream => {
             outputs.push(val);
             if val == 5 {
-                // Without a `break` here, we deadlock on `never_stream`.
-                break;
+                // Without a `return` here, we deadlock on `never_stream`.
+                return;
             }
         }
         _ in never_stream => {}
