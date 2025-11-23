@@ -61,7 +61,7 @@ impl Parse for ForStreams {
 impl ToTokens for ForStreams {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let mut initializers = TokenStream2::new();
-        let cancel_sender = format_ident!("cancel_sender", span = Span::mixed_site());
+        let cancel_flag = format_ident!("cancel_flag", span = Span::mixed_site());
         let arm_names: Vec<Ident> = (0..self.arms.len())
             .map(|i| format_ident!("arm_{}", i, span = Span::mixed_site()))
             .collect();
@@ -84,9 +84,7 @@ impl ToTokens for ForStreams {
             let name = &arm_names[i];
             initializers.extend(quote! {
                 let mut #name = ::std::pin::pin!(::futures::future::FutureExt::fuse({
-                    let #cancel_sender = ::futures::channel::mpsc::Sender::clone(&#cancel_sender);
                     async {
-                        let mut #cancel_sender = #cancel_sender;
                         let mut #returned_early = true;
                         // For the `move` case, we need to explicitly take a reference to
                         // `returned_early`, so that we don't copy it.
@@ -100,7 +98,7 @@ impl ToTokens for ForStreams {
                             *#returned_early_ref = false;
                         }.await;
                         if #returned_early {
-                            _ = ::futures::sink::SinkExt::send(&mut #cancel_sender, ()).await;
+                            ::std::sync::atomic::AtomicBool::store(&#cancel_flag, true, ::std::sync::atomic::Ordering::Relaxed);
                         }
                     }
                 }));
@@ -123,24 +121,20 @@ impl ToTokens for ForStreams {
             }
         }
 
-        let cancel_receiver = format_ident!("cancel_receiver", span = Span::mixed_site());
         tokens.extend(quote! {
             {
-                // TODO: Support `return` without heap allocation somehow.
-                let (#cancel_sender, #cancel_receiver) = ::futures::channel::mpsc::channel::<()>(0);
+                let mut #cancel_flag = ::std::sync::atomic::AtomicBool::new(false);
                 #initializers
-                let mut #cancel_receiver = ::std::pin::pin!(#cancel_receiver);
                 ::std::future::poll_fn(|#cx| {
                     let mut #foreground_finished = true;
-                    if ::futures::stream::Stream::poll_next(::std::pin::Pin::as_mut(&mut #cancel_receiver), #cx).is_ready() {
+                    #poll_calls
+                    if ::std::sync::atomic::AtomicBool::load(&#cancel_flag, ::std::sync::atomic::Ordering::Relaxed) {
                         return ::std::task::Poll::Ready(());
                     }
-                    #poll_calls
                     if #foreground_finished {
-                        ::std::task::Poll::Ready(())
-                    } else {
-                        ::std::task::Poll::Pending
+                        return ::std::task::Poll::Ready(());
                     }
+                    ::std::task::Poll::Pending
                 }).await;
             }
         });
