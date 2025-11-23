@@ -81,6 +81,25 @@ async fn test_return() {
         _ in never_stream => {}
     }
     assert_eq!(outputs, vec![0, 1, 2, 3, 4, 5]);
+
+    // Make sure the same thing works with a `move` arm, in case there are any mistakes with
+    // referencing vs copying the cancel flag.
+    let numbers_stream = futures::stream::iter(100..110);
+    let never_stream =
+        futures::stream::poll_fn(|_| -> Poll<Option<()>> { std::task::Poll::Pending });
+    let mut outputs = Vec::new();
+    let outputs_ref = &mut outputs;
+    for_streams! {
+        val in numbers_stream => move {
+            outputs_ref.push(val);
+            if val == 105 {
+                // Without a `return` here, we deadlock on `never_stream`.
+                return;
+            }
+        }
+        _ in never_stream => {}
+    }
+    assert_eq!(outputs, vec![100, 101, 102, 103, 104, 105]);
 }
 
 #[tokio::test]
