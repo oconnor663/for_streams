@@ -21,47 +21,28 @@ async fn test_channels() {
             if val % 2 == 0 {
                 continue; // skip the evens
             }
-            sender1.send(val).await.unwrap();
+            sender1.send(val).await.expect("this channel stays open");
         }
         val in tokio_stream::iter(10..20) => move {
-            sender2.send(val).await.unwrap();
+            // This channel closes when the receiver gets to `break` below, so ignore send errors.
+            _ = sender2.send(val).await;
         }
         // These arms would *not* compile with the `move` keyword, because we reference `outputs1`
-        // and `outputs2` again below.
+        // and `outputs2` again below. However, note that `ReceiverStream::new` still takes
+        // ownership of its argument, so the `break` below will close the second channel, which is
+        // why we needed to ignore send errors in the arm above.
         val in ReceiverStream::new(receiver1) => {
             outputs1.push(val);
         }
         val in ReceiverStream::new(receiver2) => {
-            if val % 2 == 1 {
-                continue; // skip the odds
-            }
             outputs2.push(val);
+            if val == 15 {
+                break; // stop at 15
+            }
         }
     }
     assert_eq!(outputs1, vec![1, 3, 5, 7, 9]);
-    assert_eq!(outputs2, vec![10, 12, 14, 16, 18]);
-}
-
-#[tokio::test]
-async fn test_break() {
-    let stream1 = futures::stream::iter(0..5);
-    let stream2 = futures::stream::iter(0..5);
-    let mut outputs1 = Vec::new();
-    let mut outputs2 = Vec::new();
-    for_streams! {
-        val in stream1 => {
-            outputs1.push(val);
-            if val == 2 {
-                // `break` ends this arm, but not the other one.
-                break;
-            }
-        }
-        val in stream2 => {
-            outputs2.push(val);
-        }
-    }
-    assert_eq!(outputs1, vec![0, 1, 2]);
-    assert_eq!(outputs2, vec![0, 1, 2, 3, 4]);
+    assert_eq!(outputs2, vec![10, 11, 12, 13, 14, 15]);
 }
 
 #[tokio::test]
@@ -117,9 +98,11 @@ async fn test_background() {
         val in stream1 => {
             outputs1.push(val);
         }
+        // `background` is an expression here, not a keyword.
         val in background => {
             outputs2.push(val);
         }
+        // Here it's a keyword.
         _ in background never_stream => {}
     }
     assert_eq!(outputs1, vec![0, 1, 2, 3, 4]);
