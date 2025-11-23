@@ -1,43 +1,10 @@
-use proc_macro2::TokenStream as TokenStream2;
-use quote::{ToTokens, quote};
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use quote::{ToTokens, format_ident, quote};
 use syn::{
     Block, Expr, Pat, Token,
     parse::{Parse, ParseStream},
     parse_macro_input,
 };
-
-struct ForStreams {
-    arms: Vec<Arm>,
-}
-
-impl Parse for ForStreams {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            arms: parse_zero_or_more(input),
-        })
-    }
-}
-
-impl ToTokens for ForStreams {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let ForStreams { arms } = self;
-        tokens.extend(quote! {
-            {
-                // TODO: Support `return` without heap allocation somehow.
-                let (cancel_sender, mut cancel_receiver) = ::futures::channel::mpsc::channel::<()>(0);
-                let joined_arms = async {
-                    ::futures::join! {
-                        #(#arms),*
-                    }
-                };
-                ::for_streams::_race(
-                    joined_arms,
-                    ::futures::stream::StreamExt::next(&mut cancel_receiver),
-                ).await;
-            }
-        });
-    }
-}
 
 struct Arm {
     pattern: Pat,
@@ -63,41 +30,78 @@ impl Parse for Arm {
     }
 }
 
-impl ToTokens for Arm {
+struct ForStreams {
+    arms: Vec<Arm>,
+}
+
+impl Parse for ForStreams {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            arms: parse_zero_or_more(input),
+        })
+    }
+}
+
+impl ToTokens for ForStreams {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let Arm {
-            pattern,
-            stream,
-            body,
-            is_move,
-        } = self;
-        let move_token = if *is_move {
-            quote! { move }
-        } else {
-            quote! {}
-        };
-        tokens.extend(quote! {
-            {
-                // TODO: catch `return` somehow
-                let cancel_sender = ::futures::channel::mpsc::Sender::clone(&cancel_sender);
-                async {
-                    let mut cancel_sender = cancel_sender;
-                    let mut returned_early = true;
-                    // For the `move` case, we need to explicitly take a reference to
-                    // `returned_early`, so that we don't copy it.
-                    let returned_early_ref = &mut returned_early;
-                    let _: () = async #move_token {
-                        let mut stream = ::std::pin::pin!(#stream);
-                        while let Some(#pattern) = ::futures::stream::StreamExt::next(&mut stream).await {
-                            // NOTE: The #body may `continue`, `break`, or `return`.
-                            #body
+        let ForStreams { arms } = self;
+        let cancel_sender_ident = format_ident!("cancel_sender", span = Span::mixed_site());
+        let mut arm_tokens = Vec::new();
+        for arm in arms {
+            let Arm {
+                pattern,
+                stream,
+                body,
+                is_move,
+            } = arm;
+            let move_token = if *is_move {
+                quote! { move }
+            } else {
+                quote! {}
+            };
+            let returned_early_ident = format_ident!("returned_early", span = Span::mixed_site());
+            let returned_early_ref_ident =
+                format_ident!("returned_early_ref", span = Span::mixed_site());
+            let stream_ident = format_ident!("stream", span = Span::mixed_site());
+            arm_tokens.push(quote! {
+                {
+                    let #cancel_sender_ident = ::futures::channel::mpsc::Sender::clone(&#cancel_sender_ident);
+                    async {
+                        let mut #cancel_sender_ident = #cancel_sender_ident;
+                        let mut #returned_early_ident = true;
+                        // For the `move` case, we need to explicitly take a reference to
+                        // `returned_early`, so that we don't copy it.
+                        let #returned_early_ref_ident = &mut #returned_early_ident;
+                        let _: () = async #move_token {
+                            let mut #stream_ident = ::std::pin::pin!(#stream);
+                            while let Some(#pattern) = ::futures::stream::StreamExt::next(&mut #stream_ident).await {
+                                // NOTE: The #body may `continue`, `break`, or `return`.
+                                #body
+                            }
+                            *#returned_early_ref_ident = false;
+                        }.await;
+                        if #returned_early_ident {
+                            _ = ::futures::sink::SinkExt::send(&mut #cancel_sender_ident, ()).await;
                         }
-                        *returned_early_ref = false;
-                    }.await;
-                    if returned_early {
-                        _ = ::futures::sink::SinkExt::send(&mut cancel_sender, ()).await;
                     }
                 }
+            });
+        }
+        let cancel_receiver_ident = format_ident!("cancel_receiver", span = Span::mixed_site());
+        let joined_arms_ident = format_ident!("joined_arms", span = Span::mixed_site());
+        tokens.extend(quote! {
+            {
+                // TODO: Support `return` without heap allocation somehow.
+                let (#cancel_sender_ident, mut #cancel_receiver_ident) = ::futures::channel::mpsc::channel::<()>(0);
+                let #joined_arms_ident = async {
+                    ::futures::join! {
+                        #(#arm_tokens),*
+                    }
+                };
+                ::for_streams::_race(
+                    #joined_arms_ident,
+                    ::futures::stream::StreamExt::next(&mut #cancel_receiver_ident),
+                ).await;
             }
         });
     }
