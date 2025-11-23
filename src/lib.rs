@@ -45,7 +45,7 @@ struct Arm {
     pattern: Pat,
     stream: Expr,
     body: Block,
-    move_: bool,
+    is_move: bool,
 }
 
 impl Parse for Arm {
@@ -54,13 +54,13 @@ impl Parse for Arm {
         _ = input.parse::<Token![in]>()?;
         let stream = input.parse()?;
         _ = input.parse::<Token![=>]>()?;
-        let move_ = input.parse::<Token![move]>().is_ok();
+        let is_move = input.parse::<Token![move]>().is_ok();
         let body = input.parse()?;
         Ok(Self {
             pattern,
             stream,
             body,
-            move_,
+            is_move,
         })
     }
 }
@@ -71,21 +71,18 @@ impl ToTokens for Arm {
             pattern,
             stream,
             body,
-            move_,
+            is_move,
         } = self;
-        if *move_ {
-            tokens.extend(quote! {
-                async_fn_mut_for_each(#stream, async move |#pattern| {
-                    #body
-                })
-            });
+        let move_token = if *is_move {
+            quote! { move }
         } else {
-            tokens.extend(quote! {
-                async_fn_mut_for_each(#stream, async |#pattern| {
-                    #body
-                })
-            });
-        }
+            quote! {}
+        };
+        tokens.extend(quote! {
+            async_fn_mut_for_each(#stream, async #move_token |#pattern| {
+                #body
+            })
+        });
     }
 }
 
