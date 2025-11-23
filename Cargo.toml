@@ -1,16 +1,11 @@
 [package]
-name = "for_streams"
+name = "for-streams"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-proc-macro = true
-
 [dependencies]
 futures = "0.3.31"
-proc-macro2 = "1.0.103"
-quote = "1.0.42"
-syn = { version = "2.0.110", features = ["full"] }
+for-streams-impl = { version = "0.1.0", path = "impl" }
 
 [dev-dependencies]
 rand = "0.9.2"
