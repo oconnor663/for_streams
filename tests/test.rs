@@ -15,8 +15,8 @@ async fn test_channels() {
     for_streams! {
         // Without the `move` keyword in the sender arms, this test will compile but deadlock. We
         // need to drop the channel senders to allow the channel receivers to read end of stream.
-        // This also indirectly tests that `futures::join!` drops its arguments promptly, as soon
-        // as each one of them is finished, rather than all together at the end.
+        // This also indirectly tests that `futures::future::Fuse` drops its inner future promptly,
+        // as soon as it's ready, rather than when the `Fuse` itself is dropped.
         val in tokio_stream::iter(0..10) => move {
             if val % 2 == 0 {
                 continue; // skip the evens
@@ -81,4 +81,28 @@ async fn test_return() {
         _ in never_stream => {}
     }
     assert_eq!(outputs, vec![0, 1, 2, 3, 4, 5]);
+}
+
+#[tokio::test]
+async fn test_background() {
+    let stream1 = futures::stream::iter(0..5);
+    // To test a parsing edge case, we'll *name* this stream "background" instead of "stream2",
+    // even though it is not in fact the background stream. We need to make sure we can parse that
+    // without confusing it for a keyword.
+    let background = futures::stream::iter(5..10);
+    let mut outputs1 = Vec::new();
+    let mut outputs2 = Vec::new();
+    let never_stream =
+        futures::stream::poll_fn(|_| -> Poll<Option<()>> { std::task::Poll::Pending });
+    for_streams! {
+        val in stream1 => {
+            outputs1.push(val);
+        }
+        val in background => {
+            outputs2.push(val);
+        }
+        _ in background never_stream => {}
+    }
+    assert_eq!(outputs1, vec![0, 1, 2, 3, 4]);
+    assert_eq!(outputs2, vec![5, 6, 7, 8, 9]);
 }
