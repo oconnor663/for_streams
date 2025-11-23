@@ -23,16 +23,6 @@ impl ToTokens for ForStreams {
         let ForStreams { arms } = self;
         tokens.extend(quote! {
             {
-                async fn async_fn_mut_for_each<S, F>(stream: S, mut f: F)
-                where
-                    S: ::futures::prelude::Stream,
-                    F: ::std::ops::AsyncFnMut(S::Item),
-                {
-                    let mut stream = ::std::pin::pin!(stream);
-                    while let Some(item) = ::futures::stream::StreamExt::next(&mut stream).await {
-                        f(item).await;
-                    }
-                }
                 ::futures::join! {
                     #(#arms),*
                 };
@@ -79,9 +69,12 @@ impl ToTokens for Arm {
             quote! {}
         };
         tokens.extend(quote! {
-            async_fn_mut_for_each(#stream, async #move_token |#pattern| {
-                #body
-            })
+            async #move_token {
+                let mut stream = ::std::pin::pin!(#stream);
+                while let Some(#pattern) = ::futures::stream::StreamExt::next(&mut stream).await {
+                    #body
+                }
+            }
         });
     }
 }
