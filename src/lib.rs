@@ -85,9 +85,9 @@
 //! # More interesting features
 //!
 //! `continue`, `break`, and `return` are all supported. `continue` skips to the next element of
-//! that stream, `break` stops reading from that stream, and `return` ends the whole macro. (The
-//! only valid return type is `()`.) This example prints `a2 b1 c1 a4 b2 c2 a6 c3 a8` and then
-//! exits:
+//! that stream, `break` stops reading from that stream, and `return` ends the whole macro (not the
+//! calling function, similar to `return` in an `async` block). The only valid return type is `()`.
+//! This example prints `a2 b1 c1 a4 b2 c2 a6 c3 a8` and then exits:
 //!
 //! ```rust
 //! # use for_streams::for_streams;
@@ -122,15 +122,16 @@
 //!
 //! Sometimes you have a stream that's finite, like a channel that will eventually close, and
 //! another streams that's infinite, like a timer that ticks forever. You can use `in background`
-//! to tell `for_streams!` not to wait for that arm to finish:
+//! to tell `for_streams!` not to wait for some arms to finish:
 //!
 //! ```rust
 //! # use for_streams::for_streams;
 //! # use std::time::Duration;
-//! # use tokio::time::interval;
-//! # use tokio_stream::wrappers::IntervalStream;
 //! # #[tokio::main]
 //! # async fn main() {
+//! use tokio::time::interval;
+//! use tokio_stream::wrappers::IntervalStream;
+//!
 //! let timer = IntervalStream::new(interval(Duration::from_millis(1)));
 //! for_streams! {
 //!     x in futures::stream::iter(1..10) => {
@@ -143,6 +144,38 @@
 //!         println!("tick");
 //!     }
 //! }
+//! # }
+//! ```
+//!
+//! The `move` keyword is supported and has the same effect as it would on a lambda or an `async
+//! move` block, making the block take ownership of all the values it references. This can be
+//! useful if you need a channel writer or a lock guard to drop promptly when one arm is done:
+//!
+//! ```rust
+//! # use for_streams::for_streams;
+//! # #[tokio::main]
+//! # async fn main() {
+//! use tokio::sync::mpsc::channel;
+//! use tokio_stream::wrappers::ReceiverStream;
+//!
+//! // This is a bounded channel, so the sender will block quickly on the
+//! // second message if the receiver isn't reading concurrently.
+//! let (sender, receiver) = channel::<i32>(1);
+//! let mut outputs = Vec::new();
+//! for_streams! {
+//!     // The `move` keyword makes this arm take ownership of `sender`, which
+//!     // means that `sender` drops as soon as this branch is finished. This
+//!     // example would deadlock without it.
+//!     val in tokio_stream::iter(1..=5) => move {
+//!         sender.send(val).await.unwrap();
+//!     }
+//!     // This arm borrows `outputs` but can't take ownership of it, because
+//!     // we use it again below in the assert.
+//!     val in ReceiverStream::new(receiver) => {
+//!         outputs.push(val);
+//!     }
+//! }
+//! assert_eq!(outputs, vec![1, 2, 3, 4, 5]);
 //! # }
 //! ```
 //!
