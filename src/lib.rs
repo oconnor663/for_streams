@@ -123,7 +123,7 @@
 //!
 //! Sometimes you have a stream that's finite, like a channel that will eventually close, and
 //! another streams that's infinite, like a timer that ticks forever. You can use `in background`
-//! to tell `for_streams!` not to wait for some arms to finish:
+//! (in place of `in`) to tell `for_streams!` not to wait for some arms to finish:
 //!
 //! ```rust
 //! # use for_streams::for_streams;
