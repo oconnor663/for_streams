@@ -30,7 +30,7 @@
 //! # #[tokio::main]
 //! # async fn main() {
 //! futures::join!(
-//!     futures::stream::iter(1..=3).for_each(|x| async move {   // `move` is mandatory this time.
+//!     futures::stream::iter(1..=3).for_each(|x| async move {
 //!         tokio::time::sleep(Duration::from_millis(1)).await;
 //!         println!("{x}");
 //!     }),
@@ -81,6 +81,44 @@
 //! `break` the loop, for example, which is awkward to replicate with `join!`. So the idea of
 //! `for_streams!` is that it's kind of like `select!` in a loop, but specifically for `Stream`s,
 //! with fewer footguns and several convenience features.
+//!
+//! # More interesting examples
+//!
+//! `continue`, `break`, and `return` are all supported. `continue` skips to the next element of
+//! that stream, `break` stops reading from that stream, and `return` ends the whole macro. (The
+//! only valid return type is `()`.) This example prints `a2 b1 c1 a4 b2 c2 a6 c3 a8` and then
+//! exits.
+//!
+//! ```rust
+//! # use for_streams::for_streams;
+//! # use std::time::Duration;
+//! # #[tokio::main]
+//! # async fn main() {
+//! for_streams! {
+//!     x in futures::stream::iter(1..1_000_000_000) => {
+//!         if x % 2 == 1 {
+//!             continue; // Skip the odd elements.
+//!         }
+//!         print!("a{x} ");
+//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!     }
+//!     y in futures::stream::iter(1..1_000_000_000) => {
+//!         if y > 2 {
+//!             break; // Stop this arm after two elements.
+//!         }
+//!         print!("b{y} ");
+//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!     }
+//!     z in futures::stream::iter(1..1_000_000_000) => {
+//!         if z > 3 {
+//!             return; // Stop the whole loop after three elements.
+//!         }
+//!         print!("c{z} ");
+//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!     }
+//! }
+//! # }
+//! ```
 //!
 //! [`Stream`]: https://docs.rs/futures/latest/futures/stream/trait.Stream.html
 //! [for_each]: https://docs.rs/futures/latest/futures/stream/trait.StreamExt.html#method.for_each
