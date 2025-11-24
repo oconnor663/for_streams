@@ -21,7 +21,7 @@
 //! # }
 //! ```
 //!
-//! That takes three milliseconds and prints `1 101 2 102 3 103`. The behavior here is similar to
+//! That takes three milliseconds and prints `1 101 2 102 3 103`. The behavior there is similar to
 //! using [`StreamExt::for_each`][for_each] and [`futures::join!`][join] together like this:
 //!
 //! ```rust
@@ -42,7 +42,7 @@
 //! # }
 //! ```
 //!
-//! However, importantly, it's _not_ the same as using [`select!`] in a loop like this:
+//! However, importantly, using [`select!`] in a loop does _not_ behave the same way:
 //!
 //! ```rust
 //! # use futures::StreamExt;
@@ -75,19 +75,19 @@
 //! footguns, but this is actually a different problem: the body of a `select!` arm doesn't run
 //! concurrently with any other arms (neither their bodies nor their "scrutinees"). Using `select!`
 //! in a loop to drive multiple streams is often a mistake, [occasionally a deadlock][deadlock] but
-//! generally a silent performance bug.
+//! frequently a silent performance bug.
 //!
 //! And yet, `select!` in a loop gives us an appealing degree of control. Any of the bodies can
-//! `break` the loop, for example, which is awkward to replicate with `join!`. So the idea of
-//! `for_streams!` is that it's kind of like `select!` in a loop, but specifically for `Stream`s,
+//! `break` the loop, for example, which is awkward to replicate with `join!`. This is what
+//! `for_streams!` is for. It's kind of like `select!` in a loop, but specifically for `Stream`s,
 //! with fewer footguns and several convenience features.
 //!
-//! # More interesting examples
+//! # More interesting features
 //!
 //! `continue`, `break`, and `return` are all supported. `continue` skips to the next element of
 //! that stream, `break` stops reading from that stream, and `return` ends the whole macro. (The
 //! only valid return type is `()`.) This example prints `a2 b1 c1 a4 b2 c2 a6 c3 a8` and then
-//! exits.
+//! exits:
 //!
 //! ```rust
 //! # use for_streams::for_streams;
@@ -95,26 +95,52 @@
 //! # #[tokio::main]
 //! # async fn main() {
 //! for_streams! {
-//!     x in futures::stream::iter(1..1_000_000_000) => {
-//!         if x % 2 == 1 {
-//!             continue; // Skip the odd elements.
+//!     a in futures::stream::iter(1..1_000_000_000) => {
+//!         if a % 2 == 1 {
+//!             continue; // Skip the odd elements in this arm.
 //!         }
-//!         print!("a{x} ");
+//!         print!("a{a} ");
 //!         tokio::time::sleep(Duration::from_millis(1)).await;
 //!     }
-//!     y in futures::stream::iter(1..1_000_000_000) => {
-//!         if y > 2 {
+//!     b in futures::stream::iter(1..1_000_000_000) => {
+//!         if b > 2 {
 //!             break; // Stop this arm after two elements.
 //!         }
-//!         print!("b{y} ");
+//!         print!("b{b} ");
 //!         tokio::time::sleep(Duration::from_millis(1)).await;
 //!     }
-//!     z in futures::stream::iter(1..1_000_000_000) => {
-//!         if z > 3 {
+//!     c in futures::stream::iter(1..1_000_000_000) => {
+//!         if c > 3 {
 //!             return; // Stop the whole loop after three elements.
 //!         }
-//!         print!("c{z} ");
+//!         print!("c{c} ");
 //!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!     }
+//! }
+//! # }
+//! ```
+//!
+//! Sometimes you have a stream that's finite, like a channel that will eventually close, and
+//! another streams that's infinite, like a timer that ticks forever. You can use `in background`
+//! to tell `for_streams!` not to wait for that arm to finish:
+//!
+//! ```rust
+//! # use for_streams::for_streams;
+//! # use std::time::Duration;
+//! # use tokio::time::interval;
+//! # use tokio_stream::wrappers::IntervalStream;
+//! # #[tokio::main]
+//! # async fn main() {
+//! let timer = IntervalStream::new(interval(Duration::from_millis(1)));
+//! for_streams! {
+//!     x in futures::stream::iter(1..10) => {
+//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         println!("{x}");
+//!     }
+//!     // We'll never reach the end of this `timer` stream, but `in background`
+//!     // means we'll exit when the first arm is done, instead of ticking forever.
+//!     _ in background timer => {
+//!         println!("tick");
 //!     }
 //! }
 //! # }
