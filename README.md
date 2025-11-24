@@ -1,4 +1,4 @@
-# `for-streams`
+# `for_streams!` [![crates.io](https://img.shields.io/crates/v/for-streams.svg)](https://crates.io/crates/for-streams) [![docs.rs](https://docs.rs/for-streams/badge.svg)](https://docs.rs/for-streams)
 
 The `for_streams!` macro, for driving multiple async [`Stream`]s concurrently. `for_streams!`
 works well with [Tokio](https://tokio.rs/), but it doesn't depend on Tokio.
