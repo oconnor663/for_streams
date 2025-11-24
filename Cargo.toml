@@ -5,6 +5,7 @@ authors = ["Jack O'Connor <oconnor663@gmail.com>"]
 description = "like `select!` in a loop, but specifically for `Stream`s, with fewer footguns and several convenience features"
 repository = "https://github.com/oconnor663/for_streams"
 license = "Apache-2.0 OR MIT"
+documentation = "https://docs.rs/for-streams"
 readme = "README.md"
 edition = "2024"
 
