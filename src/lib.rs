@@ -4,10 +4,11 @@
 //! # The simplest case
 //!
 //! ```rust
-//! # use for_streams::for_streams;
 //! # use std::time::Duration;
 //! # #[tokio::main]
 //! # async fn main() {
+//! use for_streams::for_streams;
+//!
 //! for_streams! {
 //!     x in futures::stream::iter(1..=3) => {
 //!         tokio::time::sleep(Duration::from_millis(1)).await;
@@ -79,8 +80,8 @@
 //!
 //! And yet, `select!` in a loop gives us an appealing degree of control. Any of the bodies can
 //! `break` the loop, for example, which is awkward to replicate with `join!`. This is what
-//! `for_streams!` is for. It's kind of like `select!` in a loop, but specifically for `Stream`s,
-//! with fewer footguns and several convenience features.
+//! `for_streams!` is about. It's like `select!` in a loop, but specifically for `Stream`s, with
+//! fewer footguns and several convenience features.
 //!
 //! # More interesting features
 //!
