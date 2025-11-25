@@ -1,9 +1,14 @@
 # `for_streams!` [![crates.io](https://img.shields.io/crates/v/for-streams.svg)](https://crates.io/crates/for-streams) [![docs.rs](https://docs.rs/for-streams/badge.svg)](https://docs.rs/for-streams)
 
-The `for_streams!` macro, for driving multiple async [`Stream`]s concurrently. `for_streams!`
-works well with [Tokio](https://tokio.rs/), but it doesn't depend on Tokio.
+The `for_streams!` macro, for driving multiple async [`Stream`]s concurrently. The goal is to
+be more convenient and less error-prone than using `select!`-in-a-loop. The stretch goal is to
+make the case that most codebases should _ban_ `select!`-in-a-loop.
+
+`for_streams!` works well with [Tokio](https://tokio.rs/), but it doesn't depend on Tokio.
 
 ## The simplest case
+
+Here's what it looks like to drive two streams concurrently:
 
 ```rust
 use for_streams::for_streams;
@@ -20,7 +25,7 @@ for_streams! {
 }
 ```
 
-That takes three milliseconds and prints `1 101 2 102 3 103`. The behavior there is similar to
+That takes three milliseconds and prints `1 101 2 102 3 103`. The behavior above is similar to
 using [`StreamExt::for_each`][for_each] and [`futures::join!`][join] together like this:
 
 ```rust
@@ -61,29 +66,29 @@ loop {
 }
 ```
 
-That approach takes _six_ milliseconds, not three. `select!` is
+`select!`-in-a-loop takes _six_ milliseconds, not three. `select!` is
 [notorious][cancelling_async_rust] for cancellation footguns, but this is actually a different
 problem: the body of a `select!` arm doesn't run concurrently with any other arms (neither
-their futures nor their bodies). Using `select!` in a loop is often a mistake, [occasionally a
+their futures nor their bodies). Using `select!`-in-a-loop is often a mistake, [occasionally a
 deadlock][deadlock] but frequently a silent performance bug.
 
-And yet, `select!` in a loop gives us an appealing degree of control. Any of the bodies can
-`break` the loop, for example, which is awkward to replicate with `join!`. This is what
-`for_streams!` is about. It's like `select!` in a loop, but specifically for `Stream`s, with
-fewer footguns and several convenience features.
+And yet, it does give us a lot of control. Any of the bodies can `break` the loop, for example,
+which is awkward to replicate with `join!`. This is what `for_streams!` is about. It's like
+`select!`-in-a-loop, but it's specifically for `Stream`s, with fewer footguns and several
+convenience features.
 
 ## More interesting features
 
 `continue`, `break`, and `return` are all supported. `continue` skips to the next element of
-that stream, `break` stops reading from that stream, and `return` ends the whole macro (not the
-calling function, similar to `return` in an `async` block). The only valid return type is `()`.
-This example prints `a2 b1 c1 a4 b2 c2 a6 c3 a8` and then exits:
+that stream, `break` stops reading from that stream, and `return` ends the whole macro
+immediately (not the calling function, similar to `return` in an `async` block). The only valid
+return type is `()`. This example prints `a1 b1 c1 a3 b2 c2 a5 c3 a7` and then exits:
 
 ```rust
 for_streams! {
     a in futures::stream::iter(1..1_000_000_000) => {
-        if a % 2 == 1 {
-            continue; // Skip the odd elements in this arm.
+        if a % 2 == 0 {
+            continue; // Skip the even elements in this arm.
         }
         print!("a{a} ");
         sleep(Duration::from_millis(1)).await;
@@ -169,22 +174,21 @@ each other and picking a winner, but it's usually not what we want for driving m
 in a loop. An `.await` in one arm holds up the entire loop and stops all the other streams from
 making progress.
 
-The `for_streams!` always runs its arms concurrently. As with
-[`StreamExt::for_each`][for_each], each arm alternates between polling the stream and polling
-the body.
+`for_streams!` always runs its arms concurrently. As with [`StreamExt::for_each`][for_each],
+each arm alternates between polling the stream and polling the body.
 
 TODO: `for_streams!` could support some sort of `buffered(N)` keyword, which would let us solve
 the [Barbara Battles Buffered Streams][barbara] problem directly?
 
 ### Cancellation
 
-The futures that come from [`StreamExt::next`] are generally ["cancel-safe"][cancel safety].
-But `select!` supports arbitrary futures, and this can lead to [confusing
-bugs][cancelling_async_rust], especially when you use it in a loop. `for_streams!` forces you
-to work with streams, so for example you might need to use [`futures::stream::once`] to adapt a
-one-off future, but this means that _by default_ you're not exposed to cancellation at all.
+The futures that come from [`StreamExt::next`] are generally ["cancel-safe"][cancel safety],
+but `select!` supports arbitrary futures, and this can lead to [confusing
+bugs][cancelling_async_rust]. `for_streams!` only works with streams, so for example you might
+need to use [`futures::stream::once`] to adapt a one-off future. The upside is that by default
+you're not exposed to cancellation at all.
 
-`for_streams!` does support cancellation, using either `return` or tthe `background` keyword.
+`for_streams!` does support cancellation, using either `return` or the `background` keyword.
 The hope is that cancellations you ask for will be less confusing than ones that happen
 "randomly".
 
