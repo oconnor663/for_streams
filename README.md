@@ -133,6 +133,10 @@ for_streams! {
 }
 ```
 
+TODO: Relatedly, `for_streams!` should guarantee that all the streams are polled in a
+round-robin fashion. Currently this example is a (nearly) infinite loop if we remove the
+sleeps, because control stays in the first arm until it's exhausted.
+
 #### `in background`
 
 Sometimes you have a stream that's finite, like a channel that will eventually close, and
