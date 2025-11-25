@@ -91,10 +91,12 @@
 //!
 //! # More interesting features
 //!
-//! `continue`, `break`, and `return` are all supported. `continue` skips to the next element of
-//! that stream, `break` stops reading from that stream, and `return` ends the whole macro
-//! immediately (not the calling function, similar to `return` in an `async` block). The only valid
-//! return type is `()`. This example prints `a1 b1 c1 a3 b2 c2 a5 c3 a7` and then exits:
+//! ## `continue`, `break`, and `return`
+//!
+//! `continue` skips to the next element of that stream, `break` stops reading from that stream,
+//! and `return` ends the whole macro immediately (not the calling function, similar to `return` in
+//! an `async` block). The only valid return type is `()`. This example prints `a1 b1 c1 a3 b2 c2
+//! a5 c3 a7` and then exits:
 //!
 //! ```rust
 //! # use for_streams::for_streams;
@@ -127,6 +129,8 @@
 //! # }
 //! ```
 //!
+//! ## `in background`
+//!
 //! Sometimes you have a stream that's finite, like a channel that will eventually close, and
 //! another stream that's infinite, like a timer that ticks forever. You can use `in background`
 //! (instead of `in`) to tell `for_streams!` not to wait for some arms to finish:
@@ -154,9 +158,11 @@
 //! # }
 //! ```
 //!
-//! The `move` keyword is supported and has the same effect as it would on a lambda or an `async
-//! move` block, making the block take ownership of all the values it references. This can be
-//! useful if you need a channel writer or a lock guard to drop promptly when one arm is done:
+//! ## `move`
+//!
+//! The `move` keyword has the same effect as it would on a lambda or an `async move` block, making
+//! the block take ownership of all the values it references. This can be useful if you need a
+//! channel writer or a lock guard to drop promptly when one arm is done:
 //!
 //! ```rust
 //! # use for_streams::for_streams;
@@ -221,7 +227,7 @@
 //! TODO: `for_streams!` could guarantee that partially executed bodies are always allowed to
 //! complete before exiting?
 //!
-//! ## Fusing
+//! ## Fusing and pinning
 //!
 //! We saw an example of [`futures::select!`][futures_select] in the first section above. Here's
 //! the same example using [`tokio::select!`][tokio_select] instead:
