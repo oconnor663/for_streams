@@ -4,18 +4,18 @@
 //! # The simplest case
 //!
 //! ```rust
-//! # use std::time::Duration;
+//! # use tokio::time::{sleep, Duration};
 //! # #[tokio::main]
 //! # async fn main() {
 //! use for_streams::for_streams;
 //!
 //! for_streams! {
 //!     x in futures::stream::iter(1..=3) => {
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!         print!("{x} ");
 //!     }
 //!     y in futures::stream::iter(101..=103) => {
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!         print!("{y} ");
 //!     }
 //! }
@@ -27,16 +27,16 @@
 //!
 //! ```rust
 //! # use futures::StreamExt;
-//! # use std::time::Duration;
+//! # use tokio::time::{sleep, Duration};
 //! # #[tokio::main]
 //! # async fn main() {
 //! futures::join!(
 //!     futures::stream::iter(1..=3).for_each(|x| async move {
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!         println!("{x}");
 //!     }),
 //!     futures::stream::iter(101..=103).for_each(|x| async move {
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!         println!("{x}");
 //!     }),
 //! );
@@ -47,7 +47,7 @@
 //!
 //! ```rust
 //! # use futures::StreamExt;
-//! # use std::time::Duration;
+//! # use tokio::time::{sleep, Duration};
 //! # #[tokio::main]
 //! # async fn main() {
 //! let mut stream1 = futures::stream::iter(1..=3).fuse();
@@ -56,13 +56,13 @@
 //!     futures::select! {
 //!         x = stream1.next() => {
 //!             if let Some(x) = x {
-//!                 tokio::time::sleep(Duration::from_millis(1)).await;
+//!                 sleep(Duration::from_millis(1)).await;
 //!                 println!("{x}");
 //!             }
 //!         }
 //!         y = stream2.next() => {
 //!             if let Some(y) = y {
-//!                 tokio::time::sleep(Duration::from_millis(1)).await;
+//!                 sleep(Duration::from_millis(1)).await;
 //!                 println!("{y}");
 //!             }
 //!         }
@@ -92,7 +92,7 @@
 //!
 //! ```rust
 //! # use for_streams::for_streams;
-//! # use std::time::Duration;
+//! # use tokio::time::{sleep, Duration};
 //! # #[tokio::main]
 //! # async fn main() {
 //! for_streams! {
@@ -101,21 +101,21 @@
 //!             continue; // Skip the odd elements in this arm.
 //!         }
 //!         print!("a{a} ");
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!     }
 //!     b in futures::stream::iter(1..1_000_000_000) => {
 //!         if b > 2 {
 //!             break; // Stop this arm after two elements.
 //!         }
 //!         print!("b{b} ");
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!     }
 //!     c in futures::stream::iter(1..1_000_000_000) => {
 //!         if c > 3 {
 //!             return; // Stop the whole loop after three elements.
 //!         }
 //!         print!("c{c} ");
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!     }
 //! }
 //! # }
@@ -127,7 +127,7 @@
 //!
 //! ```rust
 //! # use for_streams::for_streams;
-//! # use std::time::Duration;
+//! # use tokio::time::{sleep, Duration};
 //! # #[tokio::main]
 //! # async fn main() {
 //! use tokio::time::interval;
@@ -136,7 +136,7 @@
 //! let timer = IntervalStream::new(interval(Duration::from_millis(1)));
 //! for_streams! {
 //!     x in futures::stream::iter(1..10) => {
-//!         tokio::time::sleep(Duration::from_millis(1)).await;
+//!         sleep(Duration::from_millis(1)).await;
 //!         println!("{x}");
 //!     }
 //!     // We'll never reach the end of this `timer` stream, but `in background`
