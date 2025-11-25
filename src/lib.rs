@@ -121,7 +121,7 @@
 //! `continue` skips to the next element of that stream, `break` stops reading from that stream,
 //! and `return` ends the whole macro immediately (not the calling function, similar to `return` in
 //! an `async` block). The only valid return type is `()`. This example prints `a1 b1 c1 a3 b2 c2
-//! a5 c3 a7` and then exits:
+//! a5 c3` and then exits:
 //!
 //! ```rust
 //! # use for_streams::for_streams;
@@ -137,17 +137,17 @@
 //!         sleep(Duration::from_millis(1)).await;
 //!     }
 //!     b in futures::stream::iter(1..1_000_000_000) => {
-//!         if b > 2 {
+//!         print!("b{b} ");
+//!         if b == 2 {
 //!             break; // Stop this arm after two elements.
 //!         }
-//!         print!("b{b} ");
 //!         sleep(Duration::from_millis(1)).await;
 //!     }
 //!     c in futures::stream::iter(1..1_000_000_000) => {
-//!         if c > 3 {
+//!         print!("c{c} ");
+//!         if c == 3 {
 //!             return; // Stop the whole loop after three elements.
 //!         }
-//!         print!("c{c} ");
 //!         sleep(Duration::from_millis(1)).await;
 //!     }
 //! }
