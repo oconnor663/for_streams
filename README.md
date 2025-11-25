@@ -79,7 +79,28 @@ convenience features.
 
 ## More interesting features
 
-### `continue`, `break`, and `return`
+#### Borrowing
+
+The bodies of `for_streams!` arms are free to borrow the enclosing scope. This doesn't usually
+work with [`for_each`][for_each], because of how its closure argument is structured (switching
+to [`AsyncFnMut`] closures might fix that eventually):
+
+```rust
+let mut x = 0;
+let mut y = 0;
+for_streams! {
+    _ in futures::stream::iter(0..10) => {
+        x += 1;
+    }
+    _ in futures::stream::iter(0..20) => {
+        y += 1;
+    }
+}
+assert_eq!(x, 10);
+assert_eq!(y, 20);
+```
+
+#### `continue`, `break`, and `return`
 
 `continue` skips to the next element of that stream, `break` stops reading from that stream,
 and `return` ends the whole macro immediately (not the calling function, similar to `return` in
@@ -112,7 +133,7 @@ for_streams! {
 }
 ```
 
-### `in background`
+#### `in background`
 
 Sometimes you have a stream that's finite, like a channel that will eventually close, and
 another stream that's infinite, like a timer that ticks forever. You can use `in background`
@@ -136,7 +157,7 @@ for_streams! {
 }
 ```
 
-### `move`
+#### `move`
 
 The `move` keyword has the same effect as it would on a lambda or an `async move` block, making
 the block take ownership of all the values it references. This can be useful if you need a
@@ -172,27 +193,27 @@ Note that there are two common `select!` macros out there, the [Tokio version][t
 and the [`futures` version][futures_select]. Unless noted otherwise, everything in this section
 applies to both.
 
-### Concurrency
+#### Concurrency
 
-`select!` polls a set of futures concurrently, and once one of them completes, it cancels the
-others and executes the body of the matching arm. That makes sense for racing futures against
-each other and picking a winner, but it's usually not what we want for driving multiple streams
-in a loop. An `.await` in one arm holds up the entire loop and stops all the other streams from
-making progress.
+We saw this in "The simplest case" above. `select!` polls a set of futures concurrently, and
+once one of them completes, it cancels the others and executes the body of the matching arm.
+That makes sense for racing futures against each other and picking a winner, but it's usually
+not what we want for driving multiple streams in a loop. An `.await` in one arm holds up the
+entire loop and stops the other streams from making progress.
 
-`for_streams!` always runs its arms concurrently. As with [`StreamExt::for_each`][for_each],
-each arm alternates between polling the stream and polling the body.
+`for_streams!` always runs its arms concurrently. As with [`for_each`][for_each], each arm
+alternates between polling its stream and polling its body.
 
 TODO: `for_streams!` could support some sort of `buffered(N)` keyword, which would let us solve
 the [Barbara Battles Buffered Streams][barbara] problem directly?
 
-### Cancellation
+#### Cancellation
 
 The futures that come from [`StreamExt::next`] are generally ["cancel-safe"][cancel safety],
 but `select!` supports arbitrary futures, and this can lead to [confusing
 bugs][cancelling_async_rust]. `for_streams!` only works with streams, so for example you might
-need to use [`futures::stream::once`] to adapt a one-off future. The upside is that by default
-you're not exposed to cancellation at all.
+need to use [`futures::stream::once`] to adapt a one-off future, but the upside is that by
+default you're not exposed to cancellation at all.
 
 `for_streams!` does support cancellation, using either `return` or the `background` keyword.
 The hope is that cancellations you ask for will be less confusing than ones that happen
@@ -201,10 +222,10 @@ The hope is that cancellations you ask for will be less confusing than ones that
 TODO: `for_streams!` could guarantee that partially executed bodies are always allowed to
 complete before exiting?
 
-### Fusing and pinning
+#### Fusing and pinning
 
-We saw an example of [`futures::select!`][futures_select] in the first section above. Here's
-the same example using [`tokio::select!`][tokio_select] instead:
+We saw an example of [`futures::select!`][futures_select] in the "The simplest case" above.
+Here's the same example using [`tokio::select!`][tokio_select] instead:
 
 ```rust
 let mut stream1 = futures::stream::iter(1..=3).fuse();
@@ -237,7 +258,7 @@ as intended. Both versions also require an explicit `complete`/`else` arm to `br
 otherwise you get a panic at the end. Finally, depending on what sort of streams you're using,
 both version migth require you to explicitly [`pin!`] them.
 
-`for_streams!` takes care of all of this for you. Usually it takes ownership of the streams you
+`for_streams!` takes care of all of this for you. It usually takes ownership of the streams you
 give it, and all the bookkeeping and pinning is internal. However, you can also use
 `for_streams!` with a `&mut` reference to a stream, and if you do that you might need to
 `.fuse()` it and/or `pin!` it yourself.
@@ -257,3 +278,4 @@ give it, and all the bookkeeping and pinning is internal. However, you can also 
 [`futures::stream::once`]: https://docs.rs/futures/latest/futures/stream/fn.once.html
 [fuse]: https://docs.rs/futures/latest/futures/stream/trait.StreamExt.html#method.fuse
 [`pin!`]: https://doc.rust-lang.org/stable/std/pin/macro.pin.html
+[`AsyncFnMut`]: https://doc.rust-lang.org/std/ops/trait.AsyncFnMut.html
