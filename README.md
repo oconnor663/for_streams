@@ -72,10 +72,10 @@ problem: the body of a `select!` arm doesn't run concurrently with any other arm
 their futures nor their bodies). Using `select!`-in-a-loop is often a mistake, [occasionally a
 deadlock][deadlock] but frequently a silent performance bug.
 
-And yet, it does give us a lot of control. Any of the bodies can `break` the loop, for example,
-which is awkward to replicate with `join!`. This is what `for_streams!` is about. It's like
-`select!`-in-a-loop, but it's specifically for `Stream`s, with fewer footguns and several
-convenience features.
+And yet, it does give us a lot of control. Any of the arms can `break` the loop, for example,
+or even `return` from the enclosing function. Replicating that sort of control flow with
+`join!` is awkward. This is what `for_streams!` is for. It's like `select!`-in-a-loop, but it's
+specifically for `Stream`s, with fewer footguns and several convenience features.
 
 ## More interesting features
 
