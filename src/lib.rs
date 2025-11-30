@@ -1,3 +1,6 @@
+//! **Deprecated:** I don't think this macro is the right approach anymore. See
+//! [`join_me_maybe!`](https://github.com/oconnor663/join_me_maybe/) instead.
+//!
 //! The `for_streams!` macro, for driving multiple async [`Stream`]s concurrently. The goal is to
 //! be more convenient and less error-prone than using `select!`-in-a-loop. The stretch goal is to
 //! make the case that most codebases should _ban_ `select!`-in-a-loop.

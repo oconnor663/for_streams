@@ -1,6 +1,6 @@
 [package]
 name = "for-streams"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jack O'Connor <oconnor663@gmail.com>"]
 description = "like `select!` in a loop, but specifically for `Stream`s, with fewer footguns and several convenience features"
 repository = "https://github.com/oconnor663/for_streams"
